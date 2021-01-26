@@ -1,6 +1,6 @@
 How to run
 npm install
-npm start
+npm run dev
 Bonus Challenge
 You can decide how much data to actually give back to the browser instead of streaming the whole video like Chrome asks.
 
