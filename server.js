@@ -1,89 +1,47 @@
-const express   = require('express');
-const router    = express.Router();
-const fs        = require('fs');
-const { exec }  = require('child_process');
-
+const express = require("express");
 const app = express();
+const fs = require("fs");
 
-// Set ejs template engine
-app.set('view engine', 'ejs');
-app.use(express.static(__dirname+'/public'));
-
-const assets = 'public/assets';
-const videName = 'nature'; // without extension
-
-router.get('/', (req, res) => {
-
-    fs.access(assets+'/images/'+videName+'.jpg', fs.F_OK, (err) => {
-        
-        if (err) {
-            exec(`bin/ffmpeg -i ${assets}/${videName}.mp4 -ss 00:00:04.00 -r 1 -an -vframes 1 -f mjpeg ${assets}/images/${videName}.jpg`, (error, stdout, stderr) => {
-                if (error) {
-                    return;
-                }
-    
-                res.render('index', {
-                    image: `/assets/images/${videName}.jpg`
-                });
-            });
-        }
-
-        if(err === null) {
-            res.render('index', {
-                image: `/assets/images/${videName}.jpg`
-            });
-        }
-    });
+app.get("/", function (req, res) {
+    res.sendFile(__dirname + "/index.html");
 });
 
+app.get("/video", function (req, res) {
+    // Ensure there is a range given for the video
+    const range = req.headers.range;
+    if (!range) {
+        res.status(400).send("Requires Range header");
+    }
 
-router.get('/video', (req, res) => {
+    // get video stats (about 61MB)
+    const videoPath = "bigbuck.mp4";
+    const videoSize = fs.statSync("bigbuck.mp4").size;
 
-    const path = `${assets}/${videName}.mp4`;
+    // Parse Range
+    // Example: "bytes=32324-"
+    const CHUNK_SIZE = 10 ** 6; // 1MB
+    const start = Number(range.replace(/\D/g, ""));
+    const end = Math.min(start + CHUNK_SIZE, videoSize - 1);
 
-    fs.stat(path, (err, stat) => {
+    // Create headers
+    const contentLength = end - start + 1;
+    const headers = {
+        "Content-Range": `bytes ${start}-${end}/${videoSize}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": contentLength,
+        "Content-Type": "video/mp4",
+    };
 
-        // Handle file not found
-        if (err !== null && err.code === 'ENOENT') {
-            res.sendStatus(404);
-        }
+    // HTTP Status 206 for Partial Content
+    res.writeHead(206, headers);
 
-        const fileSize = stat.size
-        const range = req.headers.range
+    // create video read stream for this particular chunk
+    const videoStream = fs.createReadStream(videoPath, { start, end });
 
-        if (range) {
-
-            const parts = range.replace(/bytes=/, "").split("-");
-
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : fileSize-1;
-            
-            const chunksize = (end-start)+1;
-            const file = fs.createReadStream(path, {start, end});
-            const head = {
-                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                'Accept-Ranges': 'bytes',
-                'Content-Length': chunksize,
-                'Content-Type': 'video/mp4',
-            }
-            
-            res.writeHead(206, head);
-            file.pipe(res);
-        } else {
-            const head = {
-                'Content-Length': fileSize,
-                'Content-Type': 'video/mp4',
-            }
-
-            res.writeHead(200, head);
-            fs.createReadStream(path).pipe(res);
-        }
-    });
+    // Stream the video chunk to the client
+    videoStream.pipe(res);
 });
 
-app.use(router);
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
+app.listen(3000, function () {
+    console.log("Listening on port 3000!");
 });

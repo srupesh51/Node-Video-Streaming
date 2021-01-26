@@ -1,16 +1,7 @@
-# Video Stream with NodeJs
+How to run
+npm install
+npm start
+Bonus Challenge
+You can decide how much data to actually give back to the browser instead of streaming the whole video like Chrome asks.
 
-![Video Stream](https://github.com/webomnizz/nodejs-video-stream/raw/master/screenshot.png)
-
-## Requirements
-* Express
-* Ejs (Template Engine)
-* FFmpeg
-* MP4 video
-
-## Where to add mp4 video?
-Create ```public/assets``` directory or modify the following variables 
-```js
-const assets = 'public/assets';
-const videName = 'nature'; // without .mp4
-``` 
+Can you figure out how to make the chunk size 10kb per request?
